@@ -1,6 +1,6 @@
 import os
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")  # ← твой токен
 GROUP_CHAT_ID = -4680007622  # ← ID твоей группы
