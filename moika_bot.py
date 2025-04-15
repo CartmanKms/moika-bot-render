@@ -71,4 +71,5 @@ if __name__ == '__main__':
     url = f"https://{os.environ.get('RENDER_EXTERNAL_URL')}/{BOT_TOKEN}"
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}")
 
-    web_app.run(host='0.0.0.0', port=8080)
+    port = int(os.environ.get("PORT", 8080))
+    web_app.run(host='0.0.0.0', port=port)
