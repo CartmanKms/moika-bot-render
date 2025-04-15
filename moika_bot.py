@@ -3,7 +3,12 @@ import logging
 import asyncio
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    MessageHandler,
+    filters
+)
 import requests
 
 # --- Логирование ---
@@ -19,7 +24,8 @@ RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 # --- Telegram bot ---
 user_message_map = {}
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
+application = ApplicationBuilder().token(BOT_TOKEN).build()
+bot = application.bot
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -38,7 +44,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
         return
 
-    # Остальные сообщения — отправка в группу
     sent_message = await context.bot.send_message(
         chat_id=GROUP_CHAT_ID,
         text=f"📩 Новое сообщение от {user_name} (ID: {user_id}):\n\n{user_message}"
@@ -65,8 +70,8 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logging.info("Ответ в группе без reply_to_message")
 
 # --- Регистрируем handlers ---
-app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
-app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
+application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
+application.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
 
 # --- Flask Web App ---
 web_app = Flask(__name__)
@@ -76,10 +81,18 @@ def home():
     return "Бот запущен! 🚀"
 
 @web_app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), app.bot)
-    asyncio.run(app.process_update(update))
-    return "ok"
+async def webhook():
+    try:
+        update = Update.de_json(request.get_json(force=True), bot)
+        # Инициализируем и запускаем application (если не делали ранее)
+        if not application.running:
+            await application.initialize()
+            await application.start()
+        await application.process_update(update)
+        return "ok"
+    except Exception as e:
+        logging.error(f"Ошибка при обработке запроса: {e}")
+        return "error", 500
 
 @web_app.route('/set-webhook')
 def set_webhook():
@@ -92,4 +105,3 @@ def set_webhook():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     web_app.run(host='0.0.0.0', port=port)
-
