@@ -2,6 +2,24 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+from flask import Flask
+from threading import Thread
+
+# --- Flask для пинга ---
+app_web = Flask('')
+
+@app_web.route('/')
+def home():
+    return "Бот жив!"
+
+def run():
+    app_web.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# ----------------------
+
 BOT_TOKEN = os.environ.get("BOT_TOKEN")  # ← твой токен
 GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID")  # ← ID твоей группы
 
@@ -44,11 +62,11 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    keep_alive()  # ← запускаем анти-усыплялку
 
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
 
     print("Бот запущен ✅")
     app.run_polling()
-
