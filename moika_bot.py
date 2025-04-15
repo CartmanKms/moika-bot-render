@@ -1,45 +1,37 @@
 import os
 import asyncio
+import logging
 from flask import Flask, request
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 import requests
+
+# --- Логгирование ---
+logging.basicConfig(level=logging.INFO)
 
 # --- Переменные окружения ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))  # Убедись, что это число
+GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
 # --- Telegram App ---
 user_message_map = {}
-
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-# --- Кнопки ---
-keyboard = [
-    ['❓ Задать вопрос'],
-    ['⭐ Оставить отзыв'],
-    ['📞 Контакты']
-]
-reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-# --- Команда /start ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Чем могу помочь?", reply_markup=reply_markup)
-
-# --- Обработка сообщений от пользователя ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
+    user_message = update.message.text.strip()
     user_name = update.message.from_user.full_name
     user_id = update.message.from_user.id
 
-    if user_message == '❓ Задать вопрос':
+    logging.info(f"🔹 Получено сообщение от {user_name} (ID: {user_id}): {repr(user_message)}")
+
+    if 'Задать вопрос' in user_message:
         await update.message.reply_text("Напишите свой вопрос, и мы постараемся ответить как можно скорее 📨")
         return
-    elif user_message == '⭐ Оставить отзыв':
+    elif 'Оставить отзыв' in user_message:
         await update.message.reply_text("Пожалуйста, напишите ваш отзыв 🙏")
         return
-    elif user_message == '📞 Контакты':
+    elif 'Контакты' in user_message:
         await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
         return
 
@@ -51,12 +43,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message_map[sent_message.message_id] = user_id
     await update.message.reply_text("Спасибо! Мы получили ваше сообщение ✅")
 
-# --- Ответы из группы пользователю ---
 async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         reply_msg = update.message.reply_to_message
         original_msg_id = reply_msg.message_id
         text = update.message.text
+
+        logging.info(f"📨 Ответ из группы: {repr(text)} (reply to msg_id={original_msg_id})")
 
         if original_msg_id in user_message_map:
             target_user_id = user_message_map[original_msg_id]
@@ -65,8 +58,6 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"👨‍🔧 Ответ от поддержки:\n\n{text}"
             )
 
-# --- Регистрация обработчиков ---
-app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
 app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
 
@@ -83,7 +74,6 @@ def webhook():
     asyncio.run(app.update_queue.put(update))
     return "ok"
 
-# --- Установка webhook ---
 @web_app.route('/set-webhook')
 def set_webhook():
     if not RENDER_EXTERNAL_URL:
@@ -95,4 +85,3 @@ def set_webhook():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     web_app.run(host='0.0.0.0', port=port)
-
