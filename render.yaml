@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: moika-bot
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: ""
+    startCommand: python moika_bot.py
+    envVars:
+      - key: BOT_TOKEN
+        value: 7359752379:AAGYzrq6ZMB9a0wCSCvFKgiQ_F5-uXxU-xs
