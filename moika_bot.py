@@ -3,7 +3,6 @@ import logging
 from flask import Flask, request
 import telegram
 from telegram import Bot, Update
-from telegram.constants import ParseMode
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
