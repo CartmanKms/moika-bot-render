@@ -8,4 +8,7 @@ services:
     startCommand: python moika_bot.py
     envVars:
       - key: BOT_TOKEN
-        value: 7359752379:AAGYzrq6ZMB9a0wCSCvFKgiQ_F5-uXxU-xs
+        fromEnvVar: BOT_TOKEN
+      - key: GROUP_CHAT_ID
+        fromEnvVar: GROUP_CHAT_ID
+
