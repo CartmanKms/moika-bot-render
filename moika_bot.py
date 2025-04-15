@@ -71,7 +71,7 @@ def webhook():
 def set_webhook():
     if not RENDER_EXTERNAL_URL:
         return "RENDER_EXTERNAL_URL не задан"
-    url = f"https://{RENDER_EXTERNAL_URL}/{BOT_TOKEN}"
+    url = f"{RENDER_EXTERNAL_URL}/{BOT_TOKEN}"
     response = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}")
     return f"Webhook установлен на {url}\nОтвет Telegram: {response.text}"
 
