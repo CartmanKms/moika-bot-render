@@ -1,29 +1,17 @@
 import os
 from telegram import Update
-from telegram.ext import ApplicationBuilder, Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-from flask import Flask
-from threading import Thread
+from flask import Flask, request
+import asyncio
 
-# --- Flask для пинга ---
-app_web = Flask('')
-
-@app_web.route('/')
-def home():
-    return "Бот жив!"
-
-def run():
-    app_web.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-# ----------------------
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN")  # ← твой токен
-GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID")  # ← ID твоей группы
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))  # Убедись, что это число
 
 user_message_map = {}
+
+# --- Telegram application ---
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -37,7 +25,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, напишите ваш отзыв 🙏")
         return
     elif user_message == '📞 Контакты':
-        await update.message.reply_text("📍 Адрес: ул. Комсомльская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
+        await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
         return
 
     sent_message = await context.bot.send_message(
@@ -61,12 +49,26 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"👨‍🔧 Ответ от поддержки:\n\n{text}"
             )
 
+app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
+app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
+
+# --- Flask server ---
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "Бот жив!"
+
+@web_app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), app.bot)
+    asyncio.run(app.update_queue.put(update))
+    return "ok"
+
 if __name__ == '__main__':
-    keep_alive()  # ← запускаем анти-усыплялку
+    # Устанавливаем webhook
+    import requests
+    url = f"https://{os.environ.get('RENDER_EXTERNAL_URL')}/{BOT_TOKEN}"
+    requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}")
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
-
-    print("Бот запущен ✅")
-    app.run_polling()
+    web_app.run(host='0.0.0.0', port=8080)
