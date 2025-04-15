@@ -1,8 +1,8 @@
 import os
 import asyncio
 from flask import Flask, request
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 import requests
 
 # --- Переменные окружения ---
@@ -15,6 +15,19 @@ user_message_map = {}
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+# --- Кнопки ---
+keyboard = [
+    ['❓ Задать вопрос'],
+    ['⭐ Оставить отзыв'],
+    ['📞 Контакты']
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+# --- Команда /start ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Чем могу помочь?", reply_markup=reply_markup)
+
+# --- Обработка сообщений от пользователя ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     user_name = update.message.from_user.full_name
@@ -30,6 +43,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
         return
 
+    # Пересылка сообщения в группу
     sent_message = await context.bot.send_message(
         chat_id=GROUP_CHAT_ID,
         text=f"📩 Новое сообщение от {user_name} (ID: {user_id}):\n\n{user_message}"
@@ -37,6 +51,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message_map[sent_message.message_id] = user_id
     await update.message.reply_text("Спасибо! Мы получили ваше сообщение ✅")
 
+# --- Ответы из группы пользователю ---
 async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         reply_msg = update.message.reply_to_message
@@ -50,6 +65,8 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"👨‍🔧 Ответ от поддержки:\n\n{text}"
             )
 
+# --- Регистрация обработчиков ---
+app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
 app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
 
@@ -66,7 +83,7 @@ def webhook():
     asyncio.run(app.update_queue.put(update))
     return "ok"
 
-# 🔧 Ручка для установки webhook
+# --- Установка webhook ---
 @web_app.route('/set-webhook')
 def set_webhook():
     if not RENDER_EXTERNAL_URL:
@@ -78,3 +95,4 @@ def set_webhook():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     web_app.run(host='0.0.0.0', port=port)
+
