@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = '7359752379:AAGYzrq6ZMB9a0wCSCvFKgiQ_F5-uXxU-xs'  # ← твой токен
+BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")nfr  # ← твой токен
 GROUP_CHAT_ID = -4680007622  # ← ID твоей группы
 
 user_message_map = {}
