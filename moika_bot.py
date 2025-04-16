@@ -1,14 +1,13 @@
 import logging
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     MessageHandler,
+    CommandHandler,
     filters,
 )
 import os
-from dotenv import load_dotenv
-load_dotenv()
 
 # --- Логирование ---
 logging.basicConfig(
@@ -21,6 +20,20 @@ GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
 
 # --- Словарь для связи сообщений ---
 user_message_map = {}
+
+# --- Команда /start ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [KeyboardButton("❓ Задать вопрос")],
+        [KeyboardButton("⭐ Оставить отзыв")],
+        [KeyboardButton("📞 Контакты")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(
+        "Привет! Чем можем помочь? Выберите вариант ниже 👇",
+        reply_markup=reply_markup
+    )
 
 # --- Хендлер для сообщений от пользователей ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,6 +83,7 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
 
