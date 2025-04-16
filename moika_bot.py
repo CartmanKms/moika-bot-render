@@ -7,6 +7,8 @@ from telegram.ext import (
     filters,
 )
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # --- Логирование ---
 logging.basicConfig(
