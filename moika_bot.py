@@ -1,28 +1,26 @@
-import os
 import logging
-import asyncio
-import threading
-import time
-from flask import Flask, request
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
-import requests
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+import os
 
 # --- Логирование ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# --- Переменные окружения ---
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+# --- Переменные ---
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
-# --- Telegram bot ---
+# --- Словарь для связи сообщений ---
 user_message_map = {}
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-
+# --- Хендлер для сообщений от пользователей ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     user_name = update.message.from_user.full_name
@@ -40,7 +38,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
         return
 
-    # Остальные сообщения — отправка в группу
+    # Остальные сообщения — пересылка в группу
     sent_message = await context.bot.send_message(
         chat_id=GROUP_CHAT_ID,
         text=f"📩 Новое сообщение от {user_name} (ID: {user_id}):\n\n{user_message}"
@@ -48,10 +46,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message_map[sent_message.message_id] = user_id
     await update.message.reply_text("Спасибо! Мы получили ваше сообщение ✅")
 
+# --- Хендлер для ответов из группы ---
 async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
-        reply_msg = update.message.reply_to_message
-        original_msg_id = reply_msg.message_id
+        original_msg_id = update.message.reply_to_message.message_id
         text = update.message.text
 
         if original_msg_id in user_message_map:
@@ -66,45 +64,12 @@ async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         logging.info("Ответ в группе без reply_to_message")
 
-# --- Регистрируем handlers ---
-app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
-app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
-
-# --- Flask Web App ---
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
-    return "Бот запущен! 🚀"
-
-@web_app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), app.bot)
-    asyncio.run(app.process_update(update))
-    return "ok"
-
-@web_app.route('/set-webhook')
-def set_webhook():
-    if not RENDER_EXTERNAL_URL:
-        return "RENDER_EXTERNAL_URL не задан"
-    url = f"{RENDER_EXTERNAL_URL}/{BOT_TOKEN}"
-    response = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}")
-    return f"Webhook установлен на {url}\nОтвет Telegram: {response.text}"
-
-# --- Self-ping для Render ---
-def self_ping():
-    while True:
-        try:
-            if RENDER_EXTERNAL_URL:
-                requests.get(RENDER_EXTERNAL_URL)
-                logging.info("🟢 Self-ping выполнен")
-            else:
-                logging.warning("RENDER_EXTERNAL_URL не задан, self-ping не выполняется")
-        except Exception as e:
-            logging.warning(f"❌ Ошибка self-ping: {e}")
-        time.sleep(300)  # Каждые 5 минут
-
+# --- Запуск бота ---
 if __name__ == '__main__':
-    threading.Thread(target=self_ping, daemon=True).start()
-    port = int(os.environ.get("PORT", 8080))
-    web_app.run(host='0.0.0.0', port=port)
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
+
+    logging.info("Бот запущен!")
+    app.run_polling()
