@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filte
 
 # === НАСТРОЙКИ через переменные окружения ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
+CHANNEL_ID = os.getenv("GROUP_CHAT_ID")
 CONTACT_BUTTON_URL = os.getenv("CONTACT_BUTTON_URL")
 
 logging.basicConfig(level=logging.INFO)
