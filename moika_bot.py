@@ -1,25 +1,18 @@
-import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import (
-    ApplicationBuilder,
-    ContextTypes,
-    MessageHandler,
-    CommandHandler,
-    filters,
-)
 import os
+import logging
+from dotenv import load_dotenv
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- Логирование ---
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+load_dotenv()
 
-# --- Переменные ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+CONTACT_BUTTON_URL = os.getenv("CONTACT_BUTTON_URL")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))  # ← Теперь из .env
 
-# --- Словарь для связи сообщений ---
-user_message_map = {}
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # --- Команда /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -29,63 +22,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [KeyboardButton("📞 Контакты")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("Добро пожаловать! Выберите нужный раздел:", reply_markup=reply_markup)
 
-    await update.message.reply_text(
-        "Привет! Чем можем помочь? Выберите вариант ниже 👇",
-        reply_markup=reply_markup
-    )
-
-# --- Хендлер для сообщений от пользователей ---
+# --- Обработка кнопок ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-    user_name = update.message.from_user.full_name
-    user_id = update.message.from_user.id
+    text = update.message.text
 
-    logging.info(f"Получено сообщение от {user_name} ({user_id}): {user_message}")
-
-    if user_message == '❓ Задать вопрос':
-        await update.message.reply_text("Напишите свой вопрос, и мы постараемся ответить как можно скорее 📨")
-        return
-    elif user_message == '⭐ Оставить отзыв':
-        await update.message.reply_text("Пожалуйста, напишите ваш отзыв 🙏")
-        return
-    elif user_message == '📞 Контакты':
-        await update.message.reply_text("📍 Адрес: ул. Комсомольская, 29\n📞 Тел: +7 (963) 822-32-01 или 32-32-01")
-        return
-
-    # Остальные сообщения — пересылка в группу
-    sent_message = await context.bot.send_message(
-        chat_id=GROUP_CHAT_ID,
-        text=f"📩 Новое сообщение от {user_name} (ID: {user_id}):\n\n{user_message}"
-    )
-    user_message_map[sent_message.message_id] = user_id
-    await update.message.reply_text("Спасибо! Мы получили ваше сообщение ✅")
-
-# --- Хендлер для ответов из группы ---
-async def handle_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.reply_to_message:
-        original_msg_id = update.message.reply_to_message.message_id
-        text = update.message.text
-
-        if original_msg_id in user_message_map:
-            target_user_id = user_message_map[original_msg_id]
-            await context.bot.send_message(
-                chat_id=target_user_id,
-                text=f"👨‍🔧 Ответ от поддержки:\n\n{text}"
-            )
-            logging.info(f"Ответ из группы отправлен пользователю {target_user_id}")
-        else:
-            logging.info("Сообщение не связано с известным ID")
+    if text == "📞 Контакты":
+        await update.message.reply_text("Телефон: +7 (963) 822-32-01 или короткий 32-32-01 если вы в городе\nАдрес: ул. Комсомольская, 29")
+    elif text == "⭐ Оставить отзыв":
+        await update.message.reply_text("Пожалуйста, оставьте ваш отзыв. Мы ценим ваше мнение!")
+    elif text == "❓ Задать вопрос":
+        await update.message.reply_text("Напишите ваш вопрос, и мы скоро ответим!")
     else:
-        logging.info("Ответ в группе без reply_to_message")
+        # Здесь можно добавить автоответы позже, если понадобится
+        await update.message.reply_text("Спасибо за сообщение! Мы свяжемся с вами в ближайшее время.")
+
+# --- Команда /send (только для администратора) ---
+async def send_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("У вас нет доступа к этой команде.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("Пожалуйста, укажите текст поста после команды /send.")
+        return
+
+    post_text = ' '.join(context.args)
+    bot = context.bot
+
+    try:
+        sent_message = await bot.send_message(chat_id=CHANNEL_ID, text=post_text)
+
+        button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Связаться с нами", url=CONTACT_BUTTON_URL)]
+        ])
+
+        comment_text = "Теперь вы можете связаться с нами прямо в Telegram! Нажмите на кнопку ниже 👇"
+
+        await bot.send_message(chat_id=CHANNEL_ID, text=comment_text, reply_to_message_id=sent_message.message_id, reply_markup=button)
+
+        await update.message.reply_text("Пост успешно опубликован в канал и добавлена кнопка связи.")
+
+    except Exception as e:
+        logger.error(f"Ошибка при отправке поста: {e}")
+        await update.message.reply_text("Произошла ошибка при публикации поста.")
 
 # --- Запуск бота ---
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_message))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Chat(chat_id=GROUP_CHAT_ID), handle_group_reply))
+    app.add_handler(CommandHandler("send", send_to_channel))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    logging.info("Бот запущен!")
+    print("Бот запущен...")
     app.run_polling()
