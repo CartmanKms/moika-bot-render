@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
+CHANNEL_ID = os.getenv("GROUP_CHAT_ID")
 CONTACT_BUTTON_URL = os.getenv("CONTACT_BUTTON_URL")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))  # ← Теперь из .env
 
