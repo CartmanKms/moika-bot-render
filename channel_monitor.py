@@ -2,6 +2,9 @@ import logging
 import os
 from telegram import Bot, Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # === НАСТРОЙКИ через переменные окружения ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
