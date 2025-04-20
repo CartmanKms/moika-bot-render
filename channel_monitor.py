@@ -1,48 +1,63 @@
-import asyncio
-from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.error import TelegramError
-import time
+import logging
+from telegram import Bot, Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = "7359752379:AAGYzrq6ZMB9a0wCSCvFKgiQ_F5-uXxU-xs"
-CHANNEL_USERNAME = "@Moika1"
+# === НАСТРОЙКИ ===
+BOT_TOKEN = 'твой_токен_бота'
+CHANNEL_ID = '@Moika1'  # или ID, например: -1001234567890
+CONTACT_BUTTON_URL = 'https://t.me/Moika1SupportBot'
 
-bot = Bot(token=BOT_TOKEN)
+logging.basicConfig(level=logging.INFO)
 
-last_post_id = None
+# === Команда /post ===
+async def post_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
 
+    if not message:
+        return
 
-async def check_new_posts():
-    global last_post_id
+    sent_message = None
 
-    while True:
-        try:
-            posts = await bot.get_chat_history(chat_id=CHANNEL_USERNAME, limit=1)
-            if posts:
-                latest_post = posts[0]
-                if latest_post.message_id != last_post_id:
-                    last_post_id = latest_post.message_id
-                    await send_reply_with_button(latest_post.message_id)
-        except TelegramError as e:
-            print(f"Ошибка при получении постов: {e}")
-
-        await asyncio.sleep(3600)  # 1 час
-
-
-async def send_reply_with_button(post_id):
-    try:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📩 Связаться", url="https://t.me/Moika1SupportBot")]
-        ])
-        await bot.send_message(
-            chat_id=CHANNEL_USERNAME,
-            text="Теперь вы можете связаться с нами прямо в Telegram! Нажмите на кнопку ниже 👇",
-            reply_to_message_id=post_id,
-            reply_markup=keyboard
+    # Отправка в канал (фото, видео или просто текст)
+    if message.photo:
+        sent_message = await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=message.photo[-1].file_id,
+            caption=message.caption or '',
+            parse_mode='HTML'
         )
-        print(f"Кнопка добавлена под постом ID {post_id}")
-    except TelegramError as e:
-        print(f"Ошибка при отправке кнопки: {e}")
+    elif message.video:
+        sent_message = await context.bot.send_video(
+            chat_id=CHANNEL_ID,
+            video=message.video.file_id,
+            caption=message.caption or '',
+            parse_mode='HTML'
+        )
+    elif message.text:
+        sent_message = await context.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=message.text,
+            parse_mode='HTML'
+        )
+    else:
+        await message.reply_text("Я могу переслать только текст, фото или видео.")
+        return
 
+    # Комментарий под постом
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("📲 Связаться", url=CONTACT_BUTTON_URL)]]
+    )
+    await context.bot.send_message(
+        chat_id=CHANNEL_ID,
+        text="Теперь вы можете связаться с нами прямо в Telegram! Нажмите на кнопку ниже 👇",
+        reply_to_message_id=sent_message.message_id,
+        reply_markup=keyboard
+    )
 
-if __name__ == "__main__":
-    asyncio.run(check_new_posts())
+    await message.reply_text("✅ Пост опубликован в канал!")
+
+# === Запуск бота ===
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.CaptionRegex('.*') | filters.TEXT, post_handler))  # реагирует на /post с любым вложением
+    app.run_polling()
