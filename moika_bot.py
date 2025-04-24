@@ -30,7 +30,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "📞 Контакты":
-        await update.message.reply_text("Телефон: +7 (999) 123-45-67\nАдрес: г. Москва, ул. Примерная, 1")
+        await update.message.reply_text("Телефон: ‭+7 (963) 822-32-01‬ или если вы в городе 32-32-01\nАдрес: ул. комсомольская, 29")
     elif text == "⭐ Оставить отзыв":
         await update.message.reply_text("Пожалуйста, оставьте ваш отзыв. Мы ценим ваше мнение!")
     elif text == "❓ Задать вопрос":
