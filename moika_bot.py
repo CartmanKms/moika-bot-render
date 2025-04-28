@@ -7,9 +7,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 # --- Загрузка переменных окружения ---
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))              # ID канала для публикации кнопки
-CONTACT_BUTTON_URL = os.getenv("CONTACT_BUTTON_URL")  # URL для кнопки связи
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))        # ID группы поддержки
+CHANNEL_POST_ID = int(os.getenv("CHANNEL_POST_ID"))  # ID канала для публикации кнопки
+CONTACT_BUTTON_URL = os.getenv("CONTACT_BUTTON_URL")  # URL для кнопки связи
 ADMIN_ID = int(os.getenv("ADMIN_ID"))                  # ID администратора
 
 # --- Настройка логирования ---
@@ -97,7 +97,7 @@ async def send_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if original.photo:
                 file_id = original.photo[-1].file_id
                 sent_message = await context.bot.send_photo(
-                    chat_id=CHANNEL_ID,
+                    chat_id=CHANNEL_POST_ID,
                     photo=file_id,
                     caption=caption
                 )
@@ -105,7 +105,7 @@ async def send_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif original.video:
                 file_id = original.video.file_id
                 sent_message = await context.bot.send_video(
-                    chat_id=CHANNEL_ID,
+                    chat_id=CHANNEL_POST_ID,
                     video=file_id,
                     caption=caption
                 )
@@ -117,7 +117,7 @@ async def send_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("Пожалуйста, укажите текст поста или ответьте на медиа.")
                 return
             sent_message = await context.bot.send_message(
-                chat_id=CHANNEL_ID,
+                chat_id=CHANNEL_POST_ID,
                 text=caption
             )
         # Добавляем кнопку под пост
@@ -125,7 +125,7 @@ async def send_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📩 Связаться", url=CONTACT_BUTTON_URL)]
         ])
         await context.bot.send_message(
-            chat_id=CHANNEL_ID,
+            chat_id=CHANNEL_POST_ID,
             text="Теперь вы можете связаться с нами прямо в Telegram! Нажмите на кнопку ниже 👇",
             reply_to_message_id=sent_message.message_id,
             reply_markup=keyboard
@@ -145,5 +145,5 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.Chat(chat_id=GROUP_CHAT_ID) & filters.REPLY, group_reply_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    logger.info("Бот запущен...")
+    logger.info("Бот запущен..." )
     app.run_polling()
